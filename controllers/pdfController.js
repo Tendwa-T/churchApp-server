@@ -113,6 +113,7 @@ exports.createPdf = async (req, res) => {
     }
     return res.status(200).json({
       data: sendEmail.messageId,
+      pdfDoc: pdf,
       message: "PDF created and sent successfully",
       success: true,
     });
