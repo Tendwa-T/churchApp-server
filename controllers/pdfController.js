@@ -76,7 +76,7 @@ const fs = require("fs");
 const generatePDF = require("../lib/generatePDF");
 const { sendMail, sendFailedEmail } = require("../lib/mail");
 
-exports.createPdf = async (req, res) => {
+exports.handleTransactionPDF = async (req, res) => {
   try {
     // Create a pdf document and return it to the client
     const reqBod = req.body;
@@ -98,7 +98,10 @@ exports.createPdf = async (req, res) => {
       });
     }
 
-    const pdf = await generatePDF(reqBod.transactions, reqBod.user);
+    const pdf = await generatePDF.generateTransactionPDF(
+      reqBod.transactions,
+      reqBod.user
+    );
     if (pdf instanceof Error) {
       throw pdf;
     }
@@ -122,5 +125,61 @@ exports.createPdf = async (req, res) => {
     return res
       .status(500)
       .json({ data: null, message: "Internal server error", success: false });
+  }
+};
+
+exports.handleBulkPDF = async (req, res) => {
+  try {
+    // Create a pdf document and return it to the client
+    const reqBod = req.body;
+    console.log("Request body: ", reqBod);
+
+    if (reqBod.success === false) {
+      const sendEmail = await sendFailedEmail(
+        reqBod.user.email,
+        "Bulk Transaction Report",
+        "Failed to create PDF"
+      );
+      if (sendEmail instanceof Error) {
+        throw sendEmail;
+      }
+      return res.status(200).json({
+        data: sendEmail.messageId,
+        message: "Failed to create PDF",
+        success: false,
+      });
+    }
+
+    const pdf = await generatePDF.generateBulkPDF(
+      reqBod.transactions,
+      reqBod.user
+    );
+    if (pdf instanceof Error) {
+      throw pdf;
+    }
+    const sendEmail = await sendMail(
+      reqBod.user.email,
+      "Bulk Transaction Report",
+      "Please find attached your bulk transaction report",
+      pdf
+    );
+    if (sendEmail instanceof Error) {
+      throw sendEmail;
+    }
+    return res.status(200).json({
+      data: sendEmail.messageId,
+      pdfDoc: pdf,
+      message: "PDF created and sent successfully",
+      success: true,
+    });
+  } catch (error) {
+    console.log("Error in createPdf controller: ", error);
+    return res
+      .status(500)
+      .json({
+        data: null,
+        message: `Internal server error: ${error.message}`,
+        success: false,
+      });
   }
 };
